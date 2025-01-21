@@ -144,7 +144,7 @@ static char * ngx_http_upstream_dynamic_server_directive(ngx_conf_t *cf, ngx_com
     time_t                       fail_timeout;
     ngx_str_t                   *value, s;
     ngx_url_t                    u;
-    ngx_int_t                    weight, max_fails;
+    ngx_int_t                    weight, max_conns, max_fails;
     ngx_uint_t                   i;
     ngx_http_upstream_server_t  *us;
 
@@ -168,6 +168,7 @@ static char * ngx_http_upstream_dynamic_server_directive(ngx_conf_t *cf, ngx_com
     value = cf->args->elts;
 
     weight = 1;
+    max_conns = 0;
     max_fails = 1;
     fail_timeout = 10;
 
@@ -187,7 +188,22 @@ static char * ngx_http_upstream_dynamic_server_directive(ngx_conf_t *cf, ngx_com
 
             continue;
         }
+        
+        if (ngx_strncmp(value[i].data, "max_conns=", 10) == 0) {
 
+            if (!(uscf->flags & NGX_HTTP_UPSTREAM_MAX_CONNS)) {
+                goto not_supported;
+            }
+
+            max_conns = ngx_atoi(&value[i].data[10], value[i].len - 10);
+
+            if (max_conns == NGX_ERROR) {
+                goto invalid;
+            }
+
+            continue;
+        }
+        
         if (ngx_strncmp(value[i].data, "max_fails=", 10) == 0) {
 
             if (!(uscf->flags & NGX_HTTP_UPSTREAM_MAX_FAILS)) {
@@ -314,6 +330,7 @@ static char * ngx_http_upstream_dynamic_server_directive(ngx_conf_t *cf, ngx_com
     us->addrs = u.addrs;
     us->naddrs = u.naddrs;
     us->weight = weight;
+    us->max_conns = max_conns;
     us->max_fails = max_fails;
     us->fail_timeout = fail_timeout;
 
